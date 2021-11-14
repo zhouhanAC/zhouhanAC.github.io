@@ -1,0 +1,29 @@
+for循环+goroutine的坑：
+错误使用：
+for val := range values {
+    go val.MyMethod()
+}
+或者
+for val := range values {
+    go func() {
+        fmt.Println(val)
+    }()
+}
+
+这里的问题在于 val 实际上是一个遍历了切片中所有数据的单一变量。由于闭包只是绑定到这个 val 变量上，因此极有可能上面的代码的运行结果是所有 goroutine 都输出了切片的最后一个元素。这是因为很有可能当
+for-loop 执行完之后 goroutine 才开始执行，这个时候 val 的值指向切片中最后一个元素。
+改正：
+for val := range values {
+    go func(val interface{}) {
+        fmt.Println(val)
+    }(val)
+}
+在这里将 val 作为一个参数传入 goroutine 中，每个 val 都会被独立计算并保存到 goroutine 的栈中，从而得到预期的结果。
+
+另一种方法是在循环内定义新的变量，由于在循环内定义的变量在循环遍历的过程中是不共享的，因此也可以达到同样的效果：
+for i := range valslice {
+    val := valslice[i]
+    go func() {
+        fmt.Println(val)
+    }()
+}
